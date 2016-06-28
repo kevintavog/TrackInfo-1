@@ -1,0 +1,40 @@
+<!doctype html>
+
+<html>
+<head>
+    <title>TrackInfo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.0-rc.1/leaflet.css" />
+    <link rel="stylesheet" href="app.css" />
+</head>
+
+<body>
+    <section id="track" class="track-container" data-gpx-source="./trackdata/2016-06-04.gpx" data-map-target="track-map">
+        <article>
+            <div class="map" id="track-map"></div>
+        </article>
+
+        <footer>
+            <ul class="info">
+                <li>Name:&nbsp;<span class="trackName"></span></li>
+                <li>Start date:&nbsp;<span class="startDate"></span></li>
+                <li>Distance:&nbsp;<span class="distance"></span>&nbsp;mi</li>
+                <li>Duration:&nbsp;<span class="duration"></span></li>
+                <li>Elevation:&nbsp;
+                    +<span class="elevation-gain"></span>&nbsp;ft,
+                    -<span class="elevation-loss"></span>&nbsp;ft
+                </li>
+                <li>Number of points:&nbsp;<span class="pointCount"></span></li>
+            </ul>
+        </footer>
+    </section>
+
+    <script src="require.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.0-rc.1/leaflet.js"></script>
+
+    <script type="application/javascript">
+        var trackinfo = require('trackinfo');
+        trackinfo.addTrackInfo(document.getElementById('track'));
+    </script>
+
+</body>
+</html>
