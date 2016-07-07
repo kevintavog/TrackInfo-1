@@ -1,6 +1,7 @@
 <!doctype html>
 
 <html>
+
 <head>
     <title>TrackInfo</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,7 +10,10 @@
 </head>
 
 <body>
-    <section id="track" class="track-container" data-gpx-source="./trackdata/2016-06-04.gpx" data-map-target="track-map">
+    <input type="file" id="files" name="files[]" multiple="true" onchange="addLocalFiles(this.files);" />
+    <input type="button" onclick="clearTracks();" value="Clear tracks" />
+
+    <section id="track" class="track-container" data-map-target="track-map" >
         <article>
             <div class="map" id="track-map"></div>
         </article>
@@ -20,9 +24,9 @@
                 <li>Start date:&nbsp;<span class="startDate"></span></li>
                 <li>Distance:&nbsp;<span class="distance"></span>&nbsp;mi</li>
                 <li>Duration:&nbsp;<span class="duration"></span></li>
-                <li>Elevation:&nbsp;
-                    +<span class="elevation-gain"></span>&nbsp;ft,
-                    -<span class="elevation-loss"></span>&nbsp;ft
+                <li>Elevation:&nbsp; +
+                    <span class="elevation-gain"></span>&nbsp;ft, -
+                    <span class="elevation-loss"></span>&nbsp;ft
                 </li>
                 <li>Number of points:&nbsp;<span class="pointCount"></span></li>
             </ul>
@@ -33,9 +37,46 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.0-rc.1/leaflet.js"></script>
 
     <script type="application/javascript">
-        var trackinfo = require('trackinfo');
-        trackinfo.addTrackInfo(document.getElementById('track'));
+        var trackInfo = require("trackinfo");
+        var params = getUrlParams();
+        trackInfo.setTrackInfo('track-map', document.getElementById('track'), params['t']);
+
+        function clearTracks() {
+            trackInfo.setupMap('track-map');
+        }
+
+        function addLocalFiles(files) {
+            var trackElement = document.getElementById('track');
+            for (var i = 0, f; f = files[i]; i++) {
+                var reader = new FileReader();
+
+                reader.onloadend = (function(f) {
+                    return function() {
+                        trackInfo.addTrackInfoFromLocalFile(f.name, trackElement, reader.result)
+                    };
+                })(f)
+
+                reader.readAsText(f);
+            }
+        }
+
+        function getUrlParams() {
+            var match,
+                pl = /\+/g, // Regex for replacing addition symbol with a space
+                search = /([^&=]+)=?([^&]*)/g,
+                decode = function(s) {
+                    return decodeURIComponent(s.replace(pl, " "));
+                },
+                query = window.location.search.substring(1);
+
+            var urlParams = {};
+            while (match = search.exec(query))
+                urlParams[decode(match[1])] = decode(match[2]);
+            return urlParams;
+        }
+
     </script>
 
 </body>
+
 </html>

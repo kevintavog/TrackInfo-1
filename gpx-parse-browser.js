@@ -4175,12 +4175,14 @@ var EElistenerCount = function(emitter, type) {
 
 /*<replacement>*/
 var Stream;
-(function (){try{
-  Stream = require('st' + 'ream');
-}catch(_){}finally{
+(function (){
+	// try{
+  // Stream = require('st' + 'ream');
+// }catch(_){}finally{
   if (!Stream)
     Stream = require('events').EventEmitter;
-}}())
+// }}())
+}())
 /*</replacement>*/
 
 var Buffer = require('buffer').Buffer;
@@ -5342,12 +5344,14 @@ var internalUtil = {
 
 /*<replacement>*/
 var Stream;
-(function (){try{
-  Stream = require('st' + 'ream');
-}catch(_){}finally{
+(function (){
+// 	try{
+//   Stream = require('st' + 'ream');
+// }catch(_){}finally{
   if (!Stream)
     Stream = require('events').EventEmitter;
-}}())
+// }}())
+}())
 /*</replacement>*/
 
 var Buffer = require('buffer').Buffer;
@@ -6037,9 +6041,9 @@ module.exports = require("./lib/_stream_passthrough.js")
 
 },{"./lib/_stream_passthrough.js":29}],37:[function(require,module,exports){
 var Stream = (function (){
-  try {
-    return require('st' + 'ream'); // hack to fix a circular dependency issue when used with browserify
-  } catch(_){}
+  // try {
+  //   return require('st' + 'ream'); // hack to fix a circular dependency issue when used with browserify
+  // } catch(_){}
 }());
 exports = module.exports = require('./lib/_stream_readable.js');
 exports.Stream = Stream || exports;
@@ -9382,11 +9386,11 @@ function extend() {
   }
 
   var Stream
-  try {
-    Stream = require('stream').Stream
-  } catch (ex) {
+  // try {
+  //   Stream = require('stream').Stream
+  // } catch (ex) {
     Stream = function () {}
-  }
+  // }
 
   var streamWraps = sax.EVENTS.filter(function (ev) {
     return ev !== 'error' && ev !== 'end'

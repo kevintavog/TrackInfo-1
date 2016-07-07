@@ -4,20 +4,53 @@
 var gpxParse = require("gpx-parse-browser");
 var trackHelpers = require("trackhelpers");
 var trackModels = require("trackmodels");
+var trackInfo = require("trackinfo");
 
 
+var globalMap = null;
+var mapLayersControl = null;
 
-exports.addTrackInfo = function(element) {
+
+exports.setupMap = function(mapid) {
+    if (!mapid) throw "Missing mapid";
+
+    var center = null;
+    var zoomLevel = null;
+    if (globalMap != null) {
+        zoomLevel = globalMap.getZoom();
+        center = globalMap.getCenter();
+        globalMap.remove();
+        mapLayersControl = null;
+    }
+
+    globalMap = loadMap(mapid);
+
+    if (center != null) {
+        globalMap.setView(center, zoomLevel);
+    }
+}
+
+exports.setTrackInfo = function(mapid, element, trackName) {
     if (!element) throw "Missing element in addTrackInfo";
 
-    var url = element.getAttribute('data-gpx-source');
-    if (!url) throw "Missing 'data-gpx-source' element";
+    if (globalMap == null) {
+        trackInfo.setupMap(mapid);
+    }
 
-    var mapid = element.getAttribute('data-map-target');
-    if (!mapid) throw "Missing 'data-map-target' element";
+    var url;
+    if (trackName != undefined) {
+        loadTrackFromUrl(element, "./trackdata/" + trackName, globalMap);
+    }
+}
 
-    var map = loadMap(mapid);
-    loadTrackInfo(element, url, map);
+exports.addTrackInfoFromLocalFile = function(filename, element, data) {
+    if (!element) throw "Missing element in addTrackInfo";
+
+    if (globalMap == null) {
+        trackInfo.setupMap(element);
+    }
+
+    loadTrackFromFile(element, filename, globalMap, data);
 }
 
 function objectToString(o) {
@@ -40,21 +73,30 @@ function loadMap(mapid) {
     }).addTo(map);
 
     L.control.scale({ position: "bottomright" }).addTo(map);
-
     return map;
 }
 
-function loadTrackInfo(element, url, map) {
-    gpxParse.parseRemoteGpxFile(url, function(error, gpx) {
-        if (error != null) {
-            console.log("Error loading '" + url + "': " + error);
-        } else {
-            var trackInfo = new trackModels.TrackInfo(url.substr(url.lastIndexOf('/') + 1), trackHelpers.allTracks(gpx));
-            map.fitBounds(trackInfo.bounds);
-            updateDisplay(element, trackInfo);
-            addTrackToMap(map, trackInfo);
-        }
+function loadTrackFromFile(element, file, map, data) {
+    gpxParse.parseGpx(data, function(error, gpx) {
+        trackLoadCompleted(error, gpx, file, element, map);
     });
+}
+
+function loadTrackFromUrl(element, url, map) {
+    gpxParse.parseRemoteGpxFile(url, function(error, gpx) {
+        trackLoadCompleted(error, gpx, url.substr(url.lastIndexOf('/') + 1), element, map);
+    });
+}
+
+function trackLoadCompleted(error, gpx, filename, element, map) {
+    if (error != null) {
+        console.log("Error loading '" + filename + "': " + error);
+    } else {
+        var trackInfo = new trackModels.TrackInfo(filename, trackHelpers.allTracks(gpx));
+        map.fitBounds(trackInfo.bounds);
+        updateDisplay(element, trackInfo);
+        addTrackToMap(map, trackInfo);
+    }
 }
 
 function addTrackToMap(map, trackInfo) {
@@ -75,6 +117,16 @@ function addTrackToMap(map, trackInfo) {
 
     var trackLayer = new L.FeatureGroup(trackLines);
     trackLayer.addTo(map);
+
+    var trackLayerName = trackInfo.name + " track";
+    if (mapLayersControl == null) {
+
+        var overlayLayer = {};
+        overlayLayer[trackLayerName] = trackLayer;
+        mapLayersControl = L.control.layers(null, overlayLayer, { position: "topright", collapsed: false }).addTo(map);
+    } else {
+        mapLayersControl.addOverlay(trackLayer, trackLayerName);
+    }
 
     // Distance markers
     var distanceLayer = null;
@@ -98,16 +150,9 @@ function addTrackToMap(map, trackInfo) {
 
         distanceLayer = new L.FeatureGroup(distanceMarkers);
         distanceLayer.addTo(map);
+
+        mapLayersControl.addOverlay(distanceLayer, trackInfo.name + " mile markers");
     }
-
-
-
-    var overlayMaps = {
-        "Track": trackLayer,
-        "Mile markers": distanceLayer
-    };
-
-    L.control.layers(null, overlayMaps, { position: "topright", collapsed: false }).addTo(map);
 }
 
 function updateDisplay(element, trackInfo) {
