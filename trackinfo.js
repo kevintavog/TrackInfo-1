@@ -194,7 +194,7 @@ function addTrackToMap(map, trackInfo, infoElement) {
 
                 var nearest = trackHelpers.findNearestPoint(trackSegment, e.latlng.lat, e.latlng.lng);
                 if (nearest) {
-                    pathPopup.setLatLng(e.latlng);
+                    pathPopup.setLatLng(new L.LatLng(nearest.lat, nearest.lon));
                     pathPopup.setContent(
                         sprintf.sprintf(
                             "Speed: %f mph<br>Time: %s, %s<br>Elevation: %i feet", 

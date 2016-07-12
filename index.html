@@ -11,8 +11,10 @@
 </head>
 
 <body>
-    <input type="file" id="files" name="files[]" multiple="true" onchange="addLocalFiles(this.files);" />
-    <input type="button" onclick="clearTracks();" value="Clear tracks" />
+    <div id="fileInput">
+        <input type="file" id="files" name="files[]" multiple="true" onchange="addLocalFiles(this.files);" />
+        <input type="button" onclick="clearTracks();" value="Clear tracks" />
+    </div>
 
     <section id="track" class="track-container" data-map-target="track-map" >
         <article>
@@ -40,7 +42,11 @@
     <script type="application/javascript">
         var trackInfo = require("trackinfo");
         var params = getUrlParams();
-        trackInfo.setTrackInfo('track-map', document.getElementById('track'), params['t']);
+        var trackParam = params['t'];
+        trackInfo.setTrackInfo('track-map', document.getElementById('track'), trackParam);
+        if (trackParam) {
+            document.getElementById('fileInput').style.display = 'none';
+        }
 
         function clearTracks() {
             trackInfo.setupMap('track-map');
