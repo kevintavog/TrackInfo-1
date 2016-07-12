@@ -29,6 +29,10 @@ exports.milesToMeters = function(v) {
     return v * 1609.34;
 }
 
+exports.metersPerSecondToMilesPerHour = function(v) {
+    return v * 2.2369362921;
+}
+
 // Returns an array of TrackSegments, as defined/provided by the GPX file.
 exports.trackSegments = function(gpx) {
     var trackSegments = [];
@@ -109,6 +113,16 @@ function getElevationChangeType(ele1, ele2, anchorElevation) {
         return trackModels.ElevationChangeType.Flat;
     }
     return diff > 0 ? trackModels.ElevationChangeType.Rising : trackModels.ElevationChangeType.Falling;
+}
+
+exports.getAverageSpeed = function(points) {
+    if (points.length < 2) {
+        return 0;
+    }
+
+    var distance = trackHelpers.distanceFromArray(points);
+    var timeSeconds = (points.slice(-1)[0].time - points[0].time) / 1000;
+    return distance / timeSeconds;
 }
 
 exports.getSpeeds = function(tracks, smoothCount) {
