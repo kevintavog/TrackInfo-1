@@ -46,6 +46,7 @@
         trackInfo.setTrackInfo('track-map', document.getElementById('track'), trackParam);
         if (trackParam) {
             document.getElementById('fileInput').style.display = 'none';
+            document.title = document.title + ' - ' + trackParam;
         }
 
         function clearTracks() {
