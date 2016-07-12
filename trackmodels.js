@@ -10,16 +10,15 @@ var ElevationChangeType = {
 }
 
 
-function TrackSegment(type, tracks) {
-    this.trackType = type;
-    this.tracks = tracks;
+/// A continuous run of points
+function TrackRun(points) {
+    this.points = points;
 }
 
 
-function TrackInfo(name, tracks) {
-    this.name = name || "";
-    this.tracks = tracks;
-
+/// A segment of a track, as provided by the GPX file. Each segment contains one or more track runs.
+function TrackSegment(trackPoints) {
+    this.trackRuns = trackHelpers.getGaps(trackPoints);
 
     var totalDistance = 0;
     var lowest = null;
@@ -29,7 +28,7 @@ function TrackInfo(name, tracks) {
     var elevationGain = 0;
     var elevationLoss = 0;
 
-    tracks.forEach(function(t) {
+    trackPoints.forEach(function(t) {
         if (bounds[0][0] == null || t.lat < bounds[0][0]) {
             bounds[0][0] = t.lat;
         }
@@ -63,7 +62,7 @@ function TrackInfo(name, tracks) {
         }
 
         previousPoint = t;
-    })
+    });
 
     this.lowestElevation = lowest;
     this.highestElevation = highest;
@@ -71,11 +70,60 @@ function TrackInfo(name, tracks) {
     this.totalDistance = totalDistance;
     this.elevationGain = elevationGain;
     this.elevationLoss = elevationLoss;
-
-
-    this.trackSegments = trackHelpers.getGaps(tracks);
+    this.numberOfPoints = trackPoints.length;
 }
 
+
+function TrackInfo(name, trackSegments) {
+    this.name = name || "";
+    this.trackSegments = trackSegments;
+
+    var numberOfPoints = 0;
+    var totalDistance = 0;
+    var lowest = null;
+    var highest = null;
+    var bounds = [[null,null],[null,null]];
+    var elevationGain = 0;
+    var elevationLoss = 0;
+
+    trackSegments.forEach(function(segment) {
+        if (bounds[0][0] == null || segment.bounds[0][0] < bounds[0][0]) {
+            bounds[0][0] = segment.bounds[0][0];
+        }
+        if (bounds[0][1] == null || segment.bounds[0][1] < bounds[0][1]) {
+            bounds[0][1] = segment.bounds[0][1];
+        }
+
+        if (bounds[1][0] == null || segment.bounds[1][0] > bounds[1][0]) {
+            bounds[1][0] = segment.bounds[1][0];
+        }
+        if (bounds[1][1] == null || segment.bounds[1][1] > bounds[1][1]) {
+            bounds[1][1] = segment.bounds[1][1];
+        }
+
+        if (lowest == null || segment.lowestElevation < lowest) {
+            lowest = segment.lowestElevation;
+        }
+        if (highest == null || segment.highestElevation > highest) {
+            highest = segment.highestElevation;
+        }
+
+        totalDistance += segment.totalDistance;
+        elevationGain += segment.elevationGain;
+        elevationLoss += segment.elevationLoss;
+        numberOfPoints += segment.numberOfPoints;
+    });
+
+    this.numberOfPoints = numberOfPoints;
+    this.lowestElevation = lowest;
+    this.highestElevation = highest;
+    this.bounds = bounds;
+    this.totalDistance = totalDistance;
+    this.elevationGain = elevationGain;
+    this.elevationLoss = elevationLoss;
+}
+
+exports.TrackRun = TrackRun;
 exports.TrackSegment = TrackSegment;
 exports.TrackInfo = TrackInfo;
 exports.ElevationChangeType = ElevationChangeType;

@@ -29,39 +29,38 @@ exports.milesToMeters = function(v) {
     return v * 1609.34;
 }
 
-exports.allTracks = function(gpx) {
-    var allTracks = [];
+// Returns an array of TrackSegments, as defined/provided by the GPX file.
+exports.trackSegments = function(gpx) {
+    var trackSegments = [];
 
     if (gpx.tracks && gpx.tracks.length > 0) {
         gpx.tracks.forEach(function(track) {
             track.segments.forEach(function(segment) {
-                segment.forEach(function(point) {
-                    allTracks.push(point);
-                })
+                trackSegments.push(new trackModels.TrackSegment(segment));
             })
         })
     }
 
-    return allTracks;
+    return trackSegments;
 }
 
-// Returns an array of track arrays
-exports.getGaps = function(tracks) {
-    var gaps = [];
+// Accepts an array of points
+// Returns an array of TrackRuns
+exports.getGaps = function(points) {
+    var runs = [];
 
-    var gapStart = 0;
-    for (var i = 1; i < tracks.length; ++i) {
-        var timeDiff = tracks[i].time - tracks[i - 1].time;
-        var distance = trackHelpers.calculateDistance(tracks[i - 1], tracks[i]);
+    var runStart = 0;
+    for (var i = 1; i < points.length; ++i) {
+        var timeDiff = points[i].time - points[i - 1].time;
+        var distance = trackHelpers.calculateDistance(points[i - 1], points[i]);
         if (timeDiff > 1 && distance > 100) {
-            gaps.push(tracks.slice(gapStart, i));
-            gapStart = i;
+            runs.push(new trackModels.TrackRun(points.slice(runStart, i)));
+            runStart = i;
         }
     }
 
-    gaps.push(tracks.slice(gapStart, tracks.length + 1))
-
-    return gaps;
+    runs.push(new trackModels.TrackRun(points.slice(runStart, points.length + 1)));
+    return runs;
 }
 
 exports.getElevationChanges = function(tracks) {
@@ -134,19 +133,69 @@ exports.distanceFromArray = function(tracks) {
     return distance;
 }
 
-exports.getDistances = function(tracks, metersApart) {
-    var markers = [];
-    var distance = 0;
-    for (var i = 1; i < tracks.length; ++i) {
-        var before = Math.trunc(distance / metersApart);
+exports.getDistancePoints = function(trackSegments, metersApart) {
+    var distancePoints = [];
 
-        distance += trackHelpers.calculateDistance(tracks[i - 1], tracks[i]);
-        var after = Math.trunc(distance / metersApart);
-        if (before < after) {
-            if ((distance / metersApart) - after <= 0.1) {
-                markers.push({ track: tracks[i], distance: after });
+    trackSegments.forEach(function(segment) {
+        var distance = 0;
+
+        if (segment.trackRuns.length > 0 && segment.trackRuns[0].points.length > 0) {
+            var previousPoint = segment.trackRuns[0].points[0];
+            var lastPoint = null;
+            segment.trackRuns.forEach(function(trackRun) {
+                trackRun.points.forEach(function(currentPoint) {
+                    var before = Math.trunc(distance / metersApart);
+                    distance += trackHelpers.calculateDistance(previousPoint, currentPoint);
+                    var after = Math.trunc(distance / metersApart);
+                    previousPoint = currentPoint;
+
+                    if (before < after) {
+                        if ((distance / metersApart) - after <= 0.1) {
+                            distancePoints.push({ point: currentPoint, distance: after });
+                            lastPoint = currentPoint;
+                        }
+                    }
+                });
+            });
+
+            if (previousPoint != lastPoint) {
+                distancePoints.push({ point: previousPoint, distance: Math.trunc(100 * distance / metersApart) / 100 });
             }
         }
-    }
-    return markers;
+    });
+
+    return distancePoints;
+}
+
+exports.getTimePoints = function(trackSegments, secondsApart) {
+    var timePoints = [];
+
+    trackSegments.forEach(function(segment) {
+        var seconds = 0.0;
+
+        if (segment.trackRuns.length > 0 && segment.trackRuns[0].points.length > 0) {
+            var previousPoint = segment.trackRuns[0].points[0];
+            var lastPoint = null;
+            segment.trackRuns.forEach(function(trackRun) {
+                trackRun.points.forEach(function(currentPoint) {
+
+                    var before = Math.trunc(seconds / secondsApart);
+                    seconds += (currentPoint.time - previousPoint.time) / 1000;
+                    var after = Math.trunc(seconds / secondsApart);
+                    previousPoint = currentPoint;
+
+                    if (before < after) {
+                        timePoints.push({ point: currentPoint, time: seconds });
+                        lastPoint = currentPoint;
+                    }
+                });
+            });
+
+            if (previousPoint != lastPoint) {
+                timePoints.push({ point: previousPoint, time: seconds });
+            }
+        }
+    });
+
+    return timePoints;
 }

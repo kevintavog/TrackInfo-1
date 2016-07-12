@@ -9,6 +9,8 @@ var trackInfo = require("trackinfo");
 
 var globalMap = null;
 var mapLayersControl = null;
+var distanceMarkerGroup = null;
+var timeMarkerGroup = null;
 
 
 exports.setupMap = function(mapid) {
@@ -89,53 +91,25 @@ function loadTrackFromUrl(element, url, map) {
 }
 
 function trackLoadCompleted(error, gpx, filename, element, map) {
-    if (error != null) {
-        console.log("Error loading '" + filename + "': " + error);
+   if (error != null) {
+        console.log("Error loading '%o': %o", filename, error);
     } else {
-        var trackInfo = new trackModels.TrackInfo(filename, trackHelpers.allTracks(gpx));
+        var trackInfo = new trackModels.TrackInfo(filename, trackHelpers.trackSegments(gpx));
         map.fitBounds(trackInfo.bounds);
         updateDisplay(element, trackInfo);
-        addTrackToMap(map, trackInfo);
+        addTrackToMap(map, trackInfo, element);
     }
 }
 
-function addTrackToMap(map, trackInfo) {
-    var trackLines = [];
-
-    // Track line
-    trackInfo.trackSegments.forEach(function(trackSegment) {
-        var trackLatLng = [];
-        trackSegment.forEach(function(track) {
-            var _, ll = new L.LatLng(track.lat, track.lon);
-            ll.meta = { time: track.time, elevation: track.elevation };
-            trackLatLng.push(ll);
-        })
-
-        var line = new L.Polyline(trackLatLng, {color: 'red', weight: 6});
-        trackLines.push(line);
-    });
-
-    var trackLayer = new L.FeatureGroup(trackLines);
-    trackLayer.addTo(map);
-
-    var trackLayerName = trackInfo.name + " track";
-    if (mapLayersControl == null) {
-
-        var overlayLayer = {};
-        overlayLayer[trackLayerName] = trackLayer;
-        mapLayersControl = L.control.layers(null, overlayLayer, { position: "topright", collapsed: false }).addTo(map);
-    } else {
-        mapLayersControl.addOverlay(trackLayer, trackLayerName);
-    }
+function addTrackToMap(map, trackInfo, infoElement) {
 
     // Distance markers
-    var distanceLayer = null;
-    var markers = trackHelpers.getDistances(trackInfo.tracks, trackHelpers.milesToMeters(1));
-    if (markers.length > 0) {
+    var distancePoints = trackHelpers.getDistancePoints(trackInfo.trackSegments, trackHelpers.milesToMeters(1));
+    if (distancePoints.length > 0) {
         var distanceMarkers = [];
-        markers.forEach(function(markerData) {
-            var _, ll = new L.LatLng(markerData.track.lat, markerData.track.lon);
-            ll.meta = { time: markerData.track.time, elevation: markerData.track.elevation };
+        distancePoints.forEach(function(markerData) {
+            var _, ll = new L.LatLng(markerData.point.lat, markerData.point.lon);
+            ll.meta = { time: markerData.point.time, elevation: markerData.point.elevation };
 
             var icon = new L.divIcon({ className: 'distanceMarkerClass', html: markerData.distance});
 
@@ -144,14 +118,101 @@ function addTrackToMap(map, trackInfo) {
                 name: markerData.distance,
                 icon: icon
             });
-            marker.bindPopup("<b> Mile " + markerData.distance + "</b>").openPopup();
+            marker.bindPopup("<b>" + markerData.distance + " miles</b>").openPopup();
             distanceMarkers.push(marker);
         })
 
-        distanceLayer = new L.FeatureGroup(distanceMarkers);
-        distanceLayer.addTo(map);
+        if (!distanceMarkerGroup) {
+            distanceMarkerGroup = new L.FeatureGroup(distanceMarkers);
+            distanceMarkerGroup.addTo(map);
+            addToMapLayersControl(map, distanceMarkerGroup, "Mile markers");
+        } else {
+            distanceMarkerGroup.addLayer(new L.layerGroup(distanceMarkers));
+        }
+    }
 
-        mapLayersControl.addOverlay(distanceLayer, trackInfo.name + " mile markers");
+    // Time markers
+    var timePoints = trackHelpers.getTimePoints(trackInfo.trackSegments, 15 * 60);
+    if (timePoints.length > 0) {
+        var timeMarkers = [];
+        timePoints.forEach(function(timeData) {
+            var _, ll = new L.LatLng(timeData.point.lat, timeData.point.lon);
+
+            var approxMinutes = Math.floor(timeData.time / 60);
+            var time = approxMinutes;
+            if (approxMinutes > 60) {
+                var hours = Math.floor(approxMinutes / 60);
+                var minutes = approxMinutes - (hours * 60);
+                if (minutes < 10) {
+                    minutes = "0" + minutes;
+                }
+                time = hours + ":" + minutes;
+            }
+
+            var timeWithMinutes = time + "&nbsp;mins"
+            ll.meta = { time: timeWithMinutes };
+            var icon = new L.divIcon({ className: 'timeMarkerClass', html: timeWithMinutes});
+            var marker = new L.Marker(ll, {
+                clickable: true,
+                name: timeWithMinutes,
+                icon: icon
+            });
+            marker.bindPopup("<b>" + time + " minutes</b>").openPopup();
+            timeMarkers.push(marker);
+        });
+
+        if (!timeMarkerGroup) {
+            timeMarkerGroup = new L.FeatureGroup(timeMarkers);
+            timeMarkerGroup.addTo(map);
+            addToMapLayersControl(map, timeMarkerGroup, "Minute markers");
+        } else {
+            timeMarkerGroup.addLayer(new L.layerGroup(timeMarkers));
+        }
+    }
+
+
+    // Add a layer for each segment, and a line for each run
+    var segmentLayers = [];
+    var index = 1;
+    trackInfo.trackSegments.forEach(function(trackSegment) {
+        var trackLines = [];
+        trackSegment.trackRuns.forEach(function(trackRun) {
+            var trackLatLng = [];
+            trackRun.points.forEach(function(point) {
+                var _, ll = new L.LatLng(point.lat, point.lon);
+                ll.meta = { time: point.time, elevation: point.elevation };
+                trackLatLng.push(ll);
+            })
+
+            var line = new L.Polyline(trackLatLng, { color: 'red', weight: 6, clickable: true });
+            var trackName = trackInfo.name + " - " + index;
+            line.on('click', function (e) {
+                updateSegmentDisplay(infoElement, trackSegment, trackName);
+            });
+            trackLines.push(line);
+
+            ++index;
+        });
+
+        var trackLayer = new L.FeatureGroup(trackLines);
+        trackLayer.addTo(map);
+        segmentLayers.push(trackLayer);
+    });
+
+    for (var i = 0; i < segmentLayers.length; ++i) {
+        var layer = segmentLayers[i];
+        var name = trackInfo.name + " - " + (i + 1);
+        addToMapLayersControl(map, layer, name);
+    }
+}
+
+function addToMapLayersControl(map, layer, name) {
+    if (mapLayersControl == null) {
+        var overlayLayer = {};
+        overlayLayer[name] = layer;
+        mapLayersControl = L.control.layers(null, overlayLayer, { position: "topright", collapsed: false }).addTo(map);
+    } else {
+        mapLayersControl.addOverlay(layer, name);
     }
 }
 
@@ -160,19 +221,56 @@ function updateDisplay(element, trackInfo) {
         return element.getElementsByClassName(c)[0];
     }
 
-
     _class('trackName').textContent = trackInfo.name;
-    _class('startDate').textContent = trackInfo.tracks[0].time.toDateString() + ', ' + trackInfo.tracks[0].time.toLocaleTimeString();
+    var firstPoint = trackInfo.trackSegments[0].trackRuns[0].points[0];
+    var lastPoint = trackInfo.trackSegments.slice(-1)[0].trackRuns.slice(-1)[0].points.slice(-1)[0];
+    _class('startDate').textContent = firstPoint.time.toDateString() + ', ' + firstPoint.time.toLocaleTimeString();
     _class('distance').textContent = trackHelpers.metersToMiles(trackInfo.totalDistance).toFixed(2);
     _class('elevation-gain').textContent = trackHelpers.metersToFeet(trackInfo.elevationGain).toFixed(0);
     _class('elevation-loss').textContent = trackHelpers.metersToFeet(trackInfo.elevationLoss).toFixed(0);
-    _class('pointCount').textContent = trackInfo.tracks.length;
+    _class('duration').textContent = displayableTime(lastPoint.time - firstPoint.time);
+    _class('pointCount').textContent = trackInfo.numberOfPoints;
 }
 
-function calculateDistance(tracks, start, end) {
-    var distance = 0;
-    for (var i = start; i < end; ++i) {
-        distance += trackHelpers.calculateDistance(tracks[i], tracks[i + 1]);
+function updateSegmentDisplay(element, trackSegment, name) {
+    function _class(c) {
+        return element.getElementsByClassName(c)[0];
     }
-    return distance;
+
+    _class('trackName').textContent = name;
+    var firstPoint = trackSegment.trackRuns[0].points[0];
+    var lastPoint = trackSegment.trackRuns.slice(-1)[0].points.slice(-1)[0];
+    _class('startDate').textContent = firstPoint.time.toDateString() + ', ' + firstPoint.time.toLocaleTimeString();
+    _class('distance').textContent = trackHelpers.metersToMiles(trackSegment.totalDistance).toFixed(2);
+    _class('elevation-gain').textContent = trackHelpers.metersToFeet(trackSegment.elevationGain).toFixed(0);
+    _class('elevation-loss').textContent = trackHelpers.metersToFeet(trackSegment.elevationLoss).toFixed(0);
+    _class('duration').textContent = displayableTime(lastPoint.time - firstPoint.time);
+    _class('pointCount').textContent = trackSegment.numberOfPoints;
+}
+
+function displayableTime(milliseconds) {
+    var totalSeconds = Math.trunc(milliseconds / 1000);
+    var totalMinutes = Math.trunc(totalSeconds / 60);
+    var totalHours = Math.trunc(totalMinutes / 60);
+
+    var display = "";
+    if (totalHours > 0) {
+        display = totalHours + ':';
+    }
+
+    totalMinutes -= Math.trunc(totalHours * 60);
+    if (totalHours == 0 || totalMinutes >= 10) {
+        display += totalMinutes + ':';
+    } else {
+        display += '0' + totalMinutes + ':';
+    }
+
+    totalSeconds -= (totalHours * 60 * 60) + (totalMinutes * 60);
+    if (totalSeconds >= 10) {
+        display += totalSeconds;
+    } else {
+        display += '0' + totalSeconds
+    }
+
+    return display;
 }
