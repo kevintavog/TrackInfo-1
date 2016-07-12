@@ -13,6 +13,12 @@ exports.calculateDistance = function(point1, point2) {
     return gpxParse.utils.calculateDistance(point1.lat, point1.lon, point2.lat, point2.lon) * 1000;
 }
 
+// Return the distance between these two points in meters
+exports.calculateDistanceToLatLng = function(point, lat, lng) {
+    // gpx-parse returns the distance in kilometers, but elevation is in meters - convert for consistency
+    return gpxParse.utils.calculateDistance(point.lat, point.lon, lat, lng) * 1000;
+}
+
 exports.metersToFeet = function(v) {
     return v * 3.28084;
 }
@@ -125,20 +131,6 @@ exports.getAverageSpeed = function(points) {
     return distance / timeSeconds;
 }
 
-exports.getSpeeds = function(tracks, smoothCount) {
-    var segments = [];
-
-    if (tracks.length <= smoothCount) {
-        var distance = trackHelpers.distanceFromArray(tracks);
-        console.log("small array; distance - " + distance);
-    } else {
-        var distance = trackHelpers.distanceFromArray(tracks);
-//        console.log("distance - " + distance + "; " + tracks.length);
-    }
-
-    return segments;
-}
-
 exports.distanceFromArray = function(tracks) {
     var distance = 0;
     for (var i = 1; i < tracks.length; ++i) {
@@ -212,4 +204,20 @@ exports.getTimePoints = function(trackSegments, secondsApart) {
     });
 
     return timePoints;
+}
+
+exports.findNearestPoint = function(trackSegment, lat, lng) {
+    var bestDistance;
+    var nearestPoint;
+    trackSegment.trackRuns.forEach(function(trackRun) {
+        trackRun.points.forEach(function(point) {
+            var d = trackHelpers.calculateDistanceToLatLng(point, lat, lng);
+            if (!bestDistance || d < bestDistance) {
+                bestDistance = d;
+                nearestPoint = point;
+            }
+        });
+    });
+
+    return nearestPoint;
 }

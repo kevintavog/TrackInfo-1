@@ -1,7 +1,8 @@
 "use strict";
 
-
 var trackHelpers = require("trackhelpers");
+
+var speedAverageMaxPoints = 10;
 
 var ElevationChangeType = {
     Flat: 'flat',
@@ -12,6 +13,13 @@ var ElevationChangeType = {
 
 /// A continuous run of points
 function TrackRun(points) {
+    // Add an average speed to each point
+    points[0].speed = 0;
+    for (var i = 1; i < points.length; ++i) {
+        var startingPoint = Math.max(0, i - speedAverageMaxPoints);
+        points[i].speed = trackHelpers.getAverageSpeed(points.slice(startingPoint, i));
+    }
+
     this.points = points;
 }
 

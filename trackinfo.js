@@ -180,44 +180,32 @@ function addTrackToMap(map, trackInfo, infoElement) {
     trackInfo.trackSegments.forEach(function(trackSegment) {
         var trackLines = [];
         trackSegment.trackRuns.forEach(function(trackRun) {
-            var features = [];
-            for (var i = 1; i < trackRun.points.length; ++i) {
-                var prevPoint = trackRun.points[i - 1];
-                var curPoint = trackRun.points[i];
-                var speed = 0;
-                if (i >= 5) {
-                    speed = trackHelpers.getAverageSpeed(trackRun.points.slice(i - 5, i));
-                }
-                var f = {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: [[prevPoint.lon, prevPoint.lat], [curPoint.lon, curPoint.lat]]
-                    },
-                    properties: { time: curPoint.time, elevation: curPoint.elevation, speed: speed }
-                };
-                features.push(f);
-            }
+            var trackLatLng = [];
+            trackRun.points.forEach(function(point) {
+                var _, ll = new L.LatLng(point.lat, point.lon);
+                ll.meta = { time: point.time, elevation: point.elevation };
+                trackLatLng.push(ll);
+            })
 
-            var style = { color: 'red', weight: 6, clickable: true };
-            var run = L.geoJson({ type: 'between2captures', features: features}, { style: style })
+            var line = new L.Polyline(trackLatLng, { color: 'red', weight: 6, clickable: true });
             var trackName = trackInfo.name + " - " + index;
-            run.on('click', function (e) {
-                var props = e.layer.feature.properties;
-                pathPopup.setLatLng(e.latlng);
-                pathPopup.setContent(
-                    sprintf.sprintf(
-                        "Speed: %f mph<br>Time: %s, %s<br>Elevation: %i feet", 
-                        Math.trunc(100 * trackHelpers.metersPerSecondToMilesPerHour(props.speed)) / 100,
-                        props.time.toDateString(),
-                        props.time.toLocaleTimeString(),
-                        trackHelpers.metersToFeet(props.elevation)));
-                map.openPopup(pathPopup);
-
+            line.on('click', function (e) {
                 updateSegmentDisplay(infoElement, trackSegment, trackName);
-            });
-            trackLines.push(run);
 
+                var nearest = trackHelpers.findNearestPoint(trackSegment, e.latlng.lat, e.latlng.lng);
+                if (nearest) {
+                    pathPopup.setLatLng(e.latlng);
+                    pathPopup.setContent(
+                        sprintf.sprintf(
+                            "Speed: %f mph<br>Time: %s, %s<br>Elevation: %i feet", 
+                            Math.trunc(100 * trackHelpers.metersPerSecondToMilesPerHour(nearest.speed)) / 100,
+                            nearest.time.toDateString(),
+                            nearest.time.toLocaleTimeString(),
+                            trackHelpers.metersToFeet(nearest.elevation)));
+                    map.openPopup(pathPopup);
+                }
+            });
+            trackLines.push(line);
             ++index;
         });
 
