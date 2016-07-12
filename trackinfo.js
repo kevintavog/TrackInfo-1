@@ -114,7 +114,13 @@ function addTrackToMap(map, trackInfo, infoElement) {
             var _, ll = new L.LatLng(markerData.point.lat, markerData.point.lon);
             ll.meta = { time: markerData.point.time, elevation: markerData.point.elevation };
 
-            var icon = new L.divIcon({ className: 'distanceMarkerClass', html: markerData.distance});
+            var imageName = markerData.distance > 9 ? 'graphics/distancemarker-double.png' : 'graphics/distancemarker-single.png';
+            var icon = new L.divIcon({ 
+                className: 'distanceMarkerClass', 
+                html: '<div class="distanceMarkerClass">' +
+                        '<img src="' + imageName + '"/>' +
+                        '<h2 class="distance">' + markerData.distance + '</h2>' +
+                        '</div>' });
 
             var marker = new L.Marker(ll, {
                 clickable: true,
@@ -128,7 +134,7 @@ function addTrackToMap(map, trackInfo, infoElement) {
         if (!distanceMarkerGroup) {
             distanceMarkerGroup = new L.FeatureGroup(distanceMarkers);
             distanceMarkerGroup.addTo(map);
-            addToMapLayersControl(map, distanceMarkerGroup, "Mile markers");
+            addToMapLayersControl(map, distanceMarkerGroup, '<img src="graphics/distancemarker-overlay.png"> Mile markers');
         } else {
             distanceMarkerGroup.addLayer(new L.layerGroup(distanceMarkers));
         }
@@ -143,21 +149,25 @@ function addTrackToMap(map, trackInfo, infoElement) {
 
             var approxMinutes = Math.floor(timeData.time / 60);
             var time = approxMinutes;
-            if (approxMinutes > 60) {
-                var hours = Math.floor(approxMinutes / 60);
-                var minutes = approxMinutes - (hours * 60);
-                if (minutes < 10) {
-                    minutes = "0" + minutes;
-                }
-                time = hours + ":" + minutes;
+            var hours = Math.floor(approxMinutes / 60);
+            var minutes = approxMinutes - (hours * 60);
+            if (minutes < 10) {
+                minutes = "0" + minutes;
             }
+            time = hours + ":" + minutes;
 
-            var timeWithMinutes = time + "&nbsp;mins"
+            var timeWithMinutes = time;
             ll.meta = { time: timeWithMinutes };
-            var icon = new L.divIcon({ className: 'timeMarkerClass', html: timeWithMinutes});
+            var icon = new L.divIcon({ 
+                className: 'timeMarkerClass', 
+                html: '<div class="timeMarkerClass">' +
+                        '<img src="graphics/time.png"/>' +
+                        '<h2 class="time">' + time + '</h2>' +
+                        '</div>' });
+
             var marker = new L.Marker(ll, {
                 clickable: true,
-                name: timeWithMinutes,
+                name: time + " mins",
                 icon: icon
             });
             marker.bindPopup("<b>" + time + " minutes</b>").openPopup();
@@ -167,7 +177,7 @@ function addTrackToMap(map, trackInfo, infoElement) {
         if (!timeMarkerGroup) {
             timeMarkerGroup = new L.FeatureGroup(timeMarkers);
             timeMarkerGroup.addTo(map);
-            addToMapLayersControl(map, timeMarkerGroup, "Minute markers");
+            addToMapLayersControl(map, timeMarkerGroup, '<img src="graphics/time-overlay.png"> Time markers');
         } else {
             timeMarkerGroup.addLayer(new L.layerGroup(timeMarkers));
         }
@@ -177,9 +187,29 @@ function addTrackToMap(map, trackInfo, infoElement) {
     // Add a layer for each segment, and a line for each run
     var segmentLayers = [];
     var index = 1;
+    var startIcon = new L.icon({
+        iconUrl: 'graphics/run-start.png',
+        iconSize: [33, 50],
+        iconAnchor: [16, 44]
+    });
+    var endIcon = new L.icon({
+        iconUrl: 'graphics/run-end.png',
+        iconSize: [33, 50],
+        iconAnchor: [16, 44]
+    });
+
     trackInfo.trackSegments.forEach(function(trackSegment) {
         var trackLines = [];
         trackSegment.trackRuns.forEach(function(trackRun) {
+
+            if (trackRun.points.length > 1) {
+                var firstPoint = trackRun.points[0];
+                L.marker([firstPoint.lat, firstPoint.lon], {icon: startIcon}).addTo(map);
+
+                var lastPoint = trackRun.points.slice(-1)[0];
+                L.marker([lastPoint.lat, lastPoint.lon], {icon: endIcon}).addTo(map);
+            }
+
             var trackLatLng = [];
             trackRun.points.forEach(function(point) {
                 var _, ll = new L.LatLng(point.lat, point.lon);

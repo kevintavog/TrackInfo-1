@@ -163,10 +163,6 @@ exports.getDistancePoints = function(trackSegments, metersApart) {
                     }
                 });
             });
-
-            if (previousPoint != lastPoint) {
-                distancePoints.push({ point: previousPoint, distance: Math.trunc(100 * distance / metersApart) / 100 });
-            }
         }
     });
 
@@ -196,10 +192,6 @@ exports.getTimePoints = function(trackSegments, secondsApart) {
                     }
                 });
             });
-
-            if (previousPoint != lastPoint) {
-                timePoints.push({ point: previousPoint, time: seconds });
-            }
         }
     });
 
