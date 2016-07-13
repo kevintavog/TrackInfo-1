@@ -201,13 +201,18 @@ function addTrackToMap(map, trackInfo, infoElement) {
     trackInfo.trackSegments.forEach(function(trackSegment) {
         var trackLines = [];
         trackSegment.trackRuns.forEach(function(trackRun) {
-
             if (trackRun.points.length > 1) {
                 var firstPoint = trackRun.points[0];
-                L.marker([firstPoint.lat, firstPoint.lon], {icon: startIcon}).addTo(map);
+                L.marker([firstPoint.lat, firstPoint.lon], {icon: startIcon}).addTo(map)
+                    .on('click', function (e) {
+                        firstPointPopup(map, firstPoint);
+                    });
 
                 var lastPoint = trackRun.points.slice(-1)[0];
-                L.marker([lastPoint.lat, lastPoint.lon], {icon: endIcon}).addTo(map);
+                L.marker([lastPoint.lat, lastPoint.lon], {icon: endIcon}).addTo(map)
+                    .on('click', function(e) {
+                        lastPointPopup(map, lastPoint, trackSegment, trackRun);
+                    });
             }
 
             var trackLatLng = [];
@@ -217,24 +222,12 @@ function addTrackToMap(map, trackInfo, infoElement) {
                 trackLatLng.push(ll);
             })
 
-            var line = new L.Polyline(trackLatLng, { color: 'red', weight: 6, clickable: true });
             var trackName = trackInfo.name + " - " + index;
+            var line = new L.Polyline(trackLatLng, { color: 'red', weight: 6, clickable: true });
             line.on('click', function (e) {
-                updateSegmentDisplay(infoElement, trackSegment, trackName);
-
-                var nearest = trackHelpers.findNearestPoint(trackSegment, e.latlng.lat, e.latlng.lng);
-                if (nearest) {
-                    pathPopup.setLatLng(new L.LatLng(nearest.lat, nearest.lon));
-                    pathPopup.setContent(
-                        sprintf.sprintf(
-                            "Speed: %f mph<br>Time: %s, %s<br>Elevation: %i feet", 
-                            Math.trunc(100 * trackHelpers.metersPerSecondToMilesPerHour(nearest.speed)) / 100,
-                            nearest.time.toDateString(),
-                            nearest.time.toLocaleTimeString(),
-                            trackHelpers.metersToFeet(nearest.elevation)));
-                    map.openPopup(pathPopup);
-                }
-            });
+                    updateSegmentDisplay(infoElement, trackSegment, trackName);
+                    midPointPopup(map, trackSegment, e.latlng);
+                });
             trackLines.push(line);
             ++index;
         });
@@ -248,6 +241,50 @@ function addTrackToMap(map, trackInfo, infoElement) {
         var layer = segmentLayers[i];
         var name = trackInfo.name + " - " + (i + 1);
         addToMapLayersControl(map, layer, name);
+    }
+}
+
+function firstPointPopup(map, point) {
+    pathPopup.setLatLng(new L.LatLng(point.lat, point.lon));
+    pathPopup.setContent(
+        sprintf.sprintf(
+            "Start time: %s, %s<br>Elevation: %i feet", 
+            point.time.toDateString(),
+            point.time.toLocaleTimeString(),
+            trackHelpers.metersToFeet(point.elevation)));
+    map.openPopup(pathPopup);
+}
+
+function lastPointPopup(map, point, trackSegment, trackRun) {
+    var runFirstPoint = trackRun.points[0];
+    var runLastPoint = trackRun.points.slice(-1)[0];
+
+    pathPopup.setLatLng(new L.LatLng(point.lat, point.lon));
+    pathPopup.setContent(
+        sprintf.sprintf(
+            "Track duration: %s <br>Track distance: %f miles <br>Elevation: %i feet <br>End time: %s, %s",
+            displayableTime(runLastPoint.time - runFirstPoint.time),
+            trackHelpers.metersToMiles(trackHelpers.distanceFromArray(trackRun.points)).toFixed(3),
+            trackHelpers.metersToFeet(point.elevation),
+            point.time.toDateString(),
+            point.time.toLocaleTimeString()));
+    map.openPopup(pathPopup);
+}
+
+function midPointPopup(map, trackSegment, latlng) {
+    var nearest = trackHelpers.findNearestPoint(trackSegment, latlng.lat, latlng.lng);
+    if (nearest.point) {
+        pathPopup.setLatLng(new L.LatLng(nearest.point.lat, nearest.point.lon));
+        pathPopup.setContent(
+            sprintf.sprintf(
+                "Distance: %f miles <br>Duration: %s <br>Speed: %f mph <br>Elevation: %i feet <br>Time: %s, %s", 
+                trackHelpers.metersToMiles(nearest.distance).toFixed(2),
+                displayableTime(nearest.duration),
+                trackHelpers.metersPerSecondToMilesPerHour(nearest.point.speed).toFixed(2),
+                trackHelpers.metersToFeet(nearest.point.elevation),
+                nearest.point.time.toDateString(),
+                nearest.point.time.toLocaleTimeString()));
+        map.openPopup(pathPopup);
     }
 }
 
@@ -266,15 +303,15 @@ function updateDisplay(element, trackInfo) {
         return element.getElementsByClassName(c)[0];
     }
 
-    _class('trackName').textContent = trackInfo.name;
+    _class('info-track-name').textContent = trackInfo.name;
     var firstPoint = trackInfo.trackSegments[0].trackRuns[0].points[0];
     var lastPoint = trackInfo.trackSegments.slice(-1)[0].trackRuns.slice(-1)[0].points.slice(-1)[0];
-    _class('startDate').textContent = firstPoint.time.toDateString() + ', ' + firstPoint.time.toLocaleTimeString();
-    _class('distance').textContent = trackHelpers.metersToMiles(trackInfo.totalDistance).toFixed(2);
-    _class('elevation-gain').textContent = trackHelpers.metersToFeet(trackInfo.elevationGain).toFixed(0);
-    _class('elevation-loss').textContent = trackHelpers.metersToFeet(trackInfo.elevationLoss).toFixed(0);
-    _class('duration').textContent = displayableTime(lastPoint.time - firstPoint.time);
-    _class('pointCount').textContent = trackInfo.numberOfPoints;
+    _class('info-start-date').textContent = firstPoint.time.toDateString() + ', ' + firstPoint.time.toLocaleTimeString();
+    _class('info-distance').textContent = trackHelpers.metersToMiles(trackInfo.totalDistance).toFixed(2);
+    _class('info-elevation-gain').textContent = trackHelpers.metersToFeet(trackInfo.elevationGain).toFixed(0);
+    _class('info-elevation-loss').textContent = trackHelpers.metersToFeet(trackInfo.elevationLoss).toFixed(0);
+    _class('info-duration').textContent = displayableTime(lastPoint.time - firstPoint.time);
+    _class('info-point-count').textContent = trackInfo.numberOfPoints;
 }
 
 function updateSegmentDisplay(element, trackSegment, name) {
@@ -282,15 +319,15 @@ function updateSegmentDisplay(element, trackSegment, name) {
         return element.getElementsByClassName(c)[0];
     }
 
-    _class('trackName').textContent = name;
+    _class('info-track-name').textContent = name;
     var firstPoint = trackSegment.trackRuns[0].points[0];
     var lastPoint = trackSegment.trackRuns.slice(-1)[0].points.slice(-1)[0];
-    _class('startDate').textContent = firstPoint.time.toDateString() + ', ' + firstPoint.time.toLocaleTimeString();
-    _class('distance').textContent = trackHelpers.metersToMiles(trackSegment.totalDistance).toFixed(2);
-    _class('elevation-gain').textContent = trackHelpers.metersToFeet(trackSegment.elevationGain).toFixed(0);
-    _class('elevation-loss').textContent = trackHelpers.metersToFeet(trackSegment.elevationLoss).toFixed(0);
-    _class('duration').textContent = displayableTime(lastPoint.time - firstPoint.time);
-    _class('pointCount').textContent = trackSegment.numberOfPoints;
+    _class('info-start-date').textContent = firstPoint.time.toDateString() + ', ' + firstPoint.time.toLocaleTimeString();
+    _class('info-distance').textContent = trackHelpers.metersToMiles(trackSegment.totalDistance).toFixed(2);
+    _class('info-elevation-gain').textContent = trackHelpers.metersToFeet(trackSegment.elevationGain).toFixed(0);
+    _class('info-elevation-loss').textContent = trackHelpers.metersToFeet(trackSegment.elevationLoss).toFixed(0);
+    _class('info-duration').textContent = displayableTime(lastPoint.time - firstPoint.time);
+    _class('info-point-count').textContent = trackSegment.numberOfPoints;
 }
 
 function displayableTime(milliseconds) {

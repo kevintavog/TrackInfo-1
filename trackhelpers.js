@@ -134,7 +134,7 @@ exports.getAverageSpeed = function(points) {
 exports.distanceFromArray = function(tracks) {
     var distance = 0;
     for (var i = 1; i < tracks.length; ++i) {
-        distance += trackHelpers.calculateDistance(tracks[0], tracks[1]);
+        distance += trackHelpers.calculateDistance(tracks[i - 1], tracks[i]);
     }
     return distance;
 }
@@ -201,15 +201,29 @@ exports.getTimePoints = function(trackSegments, secondsApart) {
 exports.findNearestPoint = function(trackSegment, lat, lng) {
     var bestDistance;
     var nearestPoint;
+    var distanceFromStart;
+    var durationFromStart;
+
+    var currentDistance = 0;
+
+    var firstPoint = trackSegment.trackRuns[0].points[0];
+
     trackSegment.trackRuns.forEach(function(trackRun) {
-        trackRun.points.forEach(function(point) {
+        for (var i = 0; i < trackRun.points.length; ++i) {
+            var point = trackRun.points[i];
+            if (i > 0) {
+                currentDistance += trackHelpers.calculateDistance(point, trackRun.points[i - 1]);
+            }
+
             var d = trackHelpers.calculateDistanceToLatLng(point, lat, lng);
             if (!bestDistance || d < bestDistance) {
                 bestDistance = d;
                 nearestPoint = point;
+                distanceFromStart = currentDistance;
             }
-        });
+        }
     });
 
-    return nearestPoint;
+    var durationFromStart = nearestPoint.time - firstPoint.time;
+    return { point: nearestPoint, distance: distanceFromStart, duration: durationFromStart };
 }
